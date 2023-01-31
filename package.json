@@ -1,0 +1,42 @@
+{
+  "name": "@windingtree/wtmp-tokenomics",
+  "version": "1.0.0",
+  "description": "LIF tokenomics of the WindingTree market protocol",
+  "type": "module",
+  "main": "dist/index.js",
+  "repository": "git@github.com:windingtree/protocol-tokenomics.git",
+  "author": "Kostiantyn Smyrnov <kostysh@gmail.com>",
+  "contributors": [
+    "Kostiantyn Smyrnov <kostysh@gmail.com>"
+  ],
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "yarn clean && tsc -p tsconfig.build.json",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "npx eslint . --ext .ts",
+    "lint:fix": "npx eslint . --ext .ts --fix && npx prettier --write .",
+    "prepare": "husky install",
+    "commit": "git-cz -S",
+    "start": "node --experimental-specifier-resolution=node dist/src/index.js",
+    "start:dev": "node --trace-warnings --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "eslint": "^8.33.0",
+    "@typescript-eslint/eslint-plugin": "^5.50.0",
+    "@typescript-eslint/parser": "^5.50.0",
+    "prettier": "^2.8.3",
+    "husky": "^8.0.3",
+    "git-cz": "^4.9.0",
+    "lint-staged": "^13.1.0",
+    "typescript": "^4.9.5",
+    "@commitlint/config-conventional": "^17.4.2",
+    "@commitlint/cli": "^17.4.2"
+  },
+  "dependencies": {
+    "kleur": "^4.1.5",
+    "dotenv": "^16.0.3"
+  }
+}
