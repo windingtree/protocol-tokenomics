@@ -1,4 +1,5 @@
 import { Logger } from './utils/logger';
+import { setup } from './setup';
 
 const logger = Logger('index');
 
@@ -15,6 +16,8 @@ const main = async (): Promise<void> => {
 
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
+
+  setup();
 };
 
 export default main().catch(async (error) => {

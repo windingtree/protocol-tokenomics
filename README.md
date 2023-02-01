@@ -15,35 +15,29 @@ This document defines top level vision of the LIF tokenomics of the WindingTree 
 ```mermaid
 graph TB
 
-owners[Chain<br>nodes<br>owners]
 dao((DAO))
+bridge[[Stablecoins<br>bridge]]
 buyer[Buyer]
 supplier[Supplier]
-bridge[Stablecoins<br>bridge]
-
-subgraph L3
-  nodes[Chain<br>nodes]
-  contract[Deals<br>smart<br>contract]
-end
-
-dao -- manages --> bridge
-contract -.->|pays tx fee in LIF|nodes
-dao -->|pays transfers gas fees in ETH|bridge
-dao -- manages --> contract
+contract(Deals<br>smart<br>contract)
 
 supplier -->|claims deals<br>pays gas fee in LIF|contract
 supplier -- bridges LIF,<br>pays gas fees in ETH --> bridge
 supplier -->|exits stablecoins<br>pays exit transfer fee in ETH|bridge
 
-buyer -- bridges stablecoins,<br>pays gas fees in ETH --> bridge
-buyer -- bridges LIF,<br>pays gas fees in ETH --> bridge
-bridge -->|credits<br>small amount<br>LIF<br>for txs|buyer
-buyer -- pays for deals<br>in bridged stablecoins,<br>pays gas fees in LIF --> contract
+dao -- manages --> bridge
+dao -- top up LIF<br>balance --> bridge
+dao -- manages --> contract
 
 contract -- mints LIF,<br>depending on value --> buyer
+contract -- sends 1% minted LIF<br>as a fee --> dao
 
-owners -- manages --> nodes
-owners -->|participate|dao
+
+
+buyer -- bridges stablecoins,<br>pays gas fees in ETH --> bridge
+buyer -- bridges LIF,<br>pays gas fees in ETH --> bridge
+bridge -->|credits<br>small amount LIF<br>for txs|buyer
+buyer -- pays for deals<br>in bridged stablecoins,<br>pays gas fees in LIF --> contract
 ```
 
 ## Workflow
@@ -57,10 +51,11 @@ Conventionally, the workflow can be divided into the following parts:
 
 ### LIF tokens rewards
 
-- On **every deal claim** the protocol smart contract calculating LIF conversion coefficient using the following formula: coeff(stablecoin) = tx gas fee / stablecoin value, and mints LIF tokens for the buyer using the formula: amount(LIF) = (stablecoins value _ coeff(stablecoin)) _ inflation coefficient
-- `inflation coefficient` is managed by the DAO and dedicated to tuning the LIF token inflation (can be tuned to be deflated)
+- On **every deal claim** the protocol smart contract calculating LIF reward using the following formula: reward = tx gas fee \* inflation / stablecoin value;
+- `inflation` coefficient is managed by the DAO and dedicated to tuning the LIF token inflation (can be tuned to be deflated)
+- 1% of rewarded LIF tokens is sending to the DAO
 
-### Stablecoins tokens bridging
+### Stablecoins tokens bridging (Mainnet -> L3)
 
 - Stablecoins tokens can be bridged from the Mainnet to L3 without commission in equal value
 - When stablecoins tokens are bridging from the Mainnet the tx fees in ETH must be paid by the sender
@@ -71,12 +66,12 @@ Conventionally, the workflow can be divided into the following parts:
 
 - Every transaction gas fee inside the L3 must be paid in the native token (LIF)
 
-### LIF tokens exists
+### LIF tokens exits (L3->Mainnet)
 
 - When LIF tokens are moved to the bridge in the Mainnet, the tx fee in LIF must be paid by the sender
 - When unlocked LIF tokens are withdrawn from the bridge in the Mainnet, the tx fees in ETH must be paid by the sender
 
-### Stablecoins exists
+### Stablecoins exits
 
 - When stablecoins tokens are moved to the bridge in the Mainnet, the tx fee in LIF must be paid by the sender
 - When unlocked stablecoins tokens are withdrawn from the bridge in the Mainnet, the tx fees in ETH must be paid by the sender.
