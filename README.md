@@ -75,3 +75,17 @@ Conventionally, the workflow can be divided into the following parts:
 
 - When stablecoins tokens are moved to the bridge in the Mainnet, the tx fee in LIF must be paid by the sender
 - When unlocked stablecoins tokens are withdrawn from the bridge in the Mainnet, the tx fees in ETH must be paid by the sender.
+
+## Testing
+
+### Configuration
+
+```bash
+cp ./.env.example ./.env
+```
+
+### Test cases
+
+```bash
+yarn start:dev
+```
