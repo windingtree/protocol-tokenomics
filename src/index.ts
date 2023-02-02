@@ -17,7 +17,20 @@ const main = async (): Promise<void> => {
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 
-  setup();
+  const {
+    mainnetFeeRecipient,
+    l3FeeRecipient,
+    dao,
+    mainnetAccounts,
+    mainnet,
+    l3,
+    lifToken,
+    stableToken,
+    l3LifToken,
+    l3StableToken,
+    bridge,
+    contract,
+  } = await setup();
 };
 
 export default main().catch(async (error) => {

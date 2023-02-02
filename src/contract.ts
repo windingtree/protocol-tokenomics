@@ -1,7 +1,9 @@
-import type { Msg } from './utils/queue';
+import { Msg } from './utils/queue';
+import { EventEmitter } from 'events';
 import { BigNumber } from 'ethers';
 import { Chain } from './chain';
 import { Token } from './token';
+import { Offer } from './supplier';
 
 export interface ContractState {
   deals: Iterable<[string, Deal]>;
@@ -9,13 +11,6 @@ export interface ContractState {
 
 export interface Request {
   id: string;
-}
-
-export interface Offer {
-  id: string;
-  supplier: string;
-  token: string;
-  value: BigNumber;
 }
 
 export interface Deal {
@@ -27,16 +22,26 @@ export interface Deal {
   status: boolean;
 }
 
-export class Contract {
+export class Contract extends EventEmitter {
   chain: Chain;
+  address: string;
   lif: Token;
   inflation: BigNumber;
   daoFee: BigNumber;
   daoFeeRecipient: string;
   deals: Map<string, Deal>;
 
-  constructor(_chain: Chain, _lif: string, _inflation: BigNumber, _daoFee: BigNumber, _daoFeeRecipient: string) {
+  constructor(
+    _chain: Chain,
+    _address: string,
+    _lif: string,
+    _inflation: BigNumber,
+    _daoFee: BigNumber,
+    _daoFeeRecipient: string,
+  ) {
+    super();
     this.chain = _chain;
+    this.address = _address;
     this.inflation = _inflation;
     this.daoFee = _daoFee;
     this.daoFeeRecipient = _daoFeeRecipient;
@@ -67,6 +72,10 @@ export class Contract {
       value: _offer.value,
       status: false,
     });
+
+    // Offer paid
+    this.emit('deal', _offer.id);
+    this.emit(`deal#${_offer.id}`);
   }
 
   async claim(msg: Msg, offerId: string): Promise<void> {
@@ -79,11 +88,11 @@ export class Contract {
       if (deal && deal.status) {
         throw new Error(`Offer #${offerId} already claimed`);
       }
-      if (deal.supplier !== msg.sender) {
-        throw new Error('Not authorized');
-      }
       const token = this.chain.getContract<Token>(deal.token);
       token.transfer(msg, deal.buyer, deal.supplier, deal.value);
+
+      // Offer is claimed
+      this.emit('order', offerId);
 
       // LIF rewards
       const multiplier = BigNumber.from(1000);

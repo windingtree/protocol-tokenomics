@@ -12,12 +12,18 @@ import {
   l3BaseFee,
   inflationCoefficient,
   daoFee,
+  daoLif,
+  bridgeLif,
 } from './config';
 import { Logger } from './utils/logger';
 
 const logger = Logger('Setup');
 
 export interface Setup {
+  mainnetFeeRecipient: string;
+  l3FeeRecipient: string;
+  dao: string;
+  mainnetAccounts: string[];
   mainnet: Chain;
   l3: Chain;
   lifToken: Token;
@@ -46,19 +52,15 @@ export const setup = async () => {
 
   // Setup Mainnet LIF token
   const lifToken = mainnet.deployToken(
-    new Token(
-      'LIF',
-      mainnetAccounts.map((a) => [a, mainnetDefaultLif]),
-    ),
+    'LIF',
+    mainnetAccounts.map((a) => [a, mainnetDefaultLif]),
   );
   logger.info('Mainnet LIF token deployed at:', lifToken);
 
   // Setup Mainnet STABLE token
   const stableToken = mainnet.deployToken(
-    new Token(
-      'STABLE',
-      mainnetAccounts.map((a) => [a, mainnetDefaultLif]),
-    ),
+    'STABLE',
+    mainnetAccounts.map((a) => [a, mainnetDefaultLif]),
   );
   logger.info('Mainnet STABLE token deployed at:', stableToken);
 
@@ -68,16 +70,16 @@ export const setup = async () => {
   logger.info('L3 chain fee recipient:', l3FeeRecipient);
 
   // Setup L3 LIF token
-  const l3LifToken = l3.deployToken(new Token('LIF', []));
+  const l3LifToken = l3.deployToken('LIF', []);
   logger.info('L3 LIF token deployed at:', l3LifToken);
 
   // Setup L3 STABLE token
-  const l3StableToken = l3.deployToken(new Token('STABLE', []));
+  const l3StableToken = l3.deployToken('STABLE', []);
   logger.info('L3 STABLE token deployed at:', l3StableToken);
 
   // Setup bridge
   logger.info('DAO address:', dao);
-  const bridge = new Bridge([mainnet, l3]);
+  const bridge = new Bridge([mainnet, l3], l3LifToken, bridgeLif);
   logger.info('Bridge setup done');
   bridge.registerPair(
     {
@@ -102,11 +104,24 @@ export const setup = async () => {
   );
   logger.info('Registered bridged pair STABLE (Mainnet) -> STABLE (L3)');
 
+  // Top-up the DAO with LIF on L3
+  l3.send(constants.AddressZero, dao, daoLif);
+  logger.info(`DAO loaded with ${daoLif.toString()} LIF L3`);
+
+  // Credit bridge with LIF on L3 from DAO
+  const bridgeAccount = bridge.wallets[l3.id];
+  l3.send(dao, bridgeAccount, daoLif);
+  logger.info(`Bridge credited with ${daoLif.toString()} LIF from DAO on L3`);
+
   // Setup the protocol smart contract
   const contract = l3.deployContract(l3LifToken, inflationCoefficient, daoFee, dao);
   logger.info('The protocol smart contract deployed at:', contract);
 
   return {
+    mainnetFeeRecipient,
+    l3FeeRecipient,
+    dao,
+    mainnetAccounts,
     mainnet,
     l3,
     lifToken,

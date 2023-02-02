@@ -1,4 +1,4 @@
-import type { Chain } from './chain';
+import { Chain } from './chain';
 import { BigNumber } from 'ethers';
 import { generateAccounts } from './utils/wallet';
 
@@ -12,8 +12,10 @@ export class Bridge {
   wallets: Record<string, string>; // chainId => account
   pairsDirect: Map<string, Map<string, string>>; // chainId => tokenAddressFrom => tokenAddressTo
   pairsReverse: Map<string, Map<string, string>>; // chainId => tokenAddressTo => tokenAddressFrom
+  l3Lif: string;
+  enterCreditValue: BigNumber;
 
-  constructor(_chains: Chain[]) {
+  constructor(_chains: Chain[], _l3Lif: string, _bridgeLif: BigNumber) {
     this.chains = new Map(_chains.map((c) => [c.id, c]));
     this.wallets = generateAccounts(this.chains.size).reduce(
       (a, v, i) => ({
@@ -24,6 +26,8 @@ export class Bridge {
     );
     this.pairsDirect = new Map();
     this.pairsReverse = new Map();
+    this.l3Lif = _l3Lif;
+    this.enterCreditValue = _bridgeLif;
   }
 
   getChain(chainId: string): Chain {
@@ -86,6 +90,9 @@ export class Bridge {
       },
     });
     await destChain.mempool.wait(mintTx);
+    // Send to the sender a small amount of LIF on the L3
+    const bridgeAccount = this.wallets[destChain.id];
+    destChain.send(bridgeAccount, sender, this.enterCreditValue);
   }
 
   async exit(

@@ -1,5 +1,6 @@
-import type { Msg } from './utils/queue';
+import { Msg } from './utils/queue';
 import { BigNumber } from 'ethers';
+import { Chain } from './chain';
 
 export interface TokenState {
   symbol: string;
@@ -8,11 +9,15 @@ export interface TokenState {
 }
 
 export class Token {
+  chain: Chain;
+  address: string;
   symbol: string;
   totalSupply: BigNumber;
   balances: Map<string, BigNumber>;
 
-  constructor(_symbol: string, _balances: Iterable<[string, BigNumber]> = []) {
+  constructor(_chain: Chain, _address: string, _symbol: string, _balances: Iterable<[string, BigNumber]> = []) {
+    this.chain = _chain;
+    this.address = _address;
     this.symbol = _symbol;
     this.balances = new Map<string, BigNumber>(_balances);
     this.totalSupply = Array.from(_balances).reduce((a, v) => a.add(v[1]), BigNumber.from(0));

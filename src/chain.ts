@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Transaction, TransactionWithHash } from './utils/queue';
+import { Transaction, TransactionWithHash } from './utils/queue';
 import { BigNumber, utils, constants } from 'ethers';
 import { Queue } from './utils/queue';
 import { Token } from './token';
@@ -89,14 +89,14 @@ export class Chain {
     }
   }
 
-  deployToken(token: Token): string {
+  deployToken(_symbol: string, _balances: Iterable<[string, BigNumber]> = []): string {
     const state = this.getState();
     try {
-      if (this.contracts.get(token.symbol)) {
+      if (this.contracts.get(_symbol)) {
         throw new Error('Token already exists');
       }
       const address = generateAccounts(1)[0];
-      this.contracts.set(address, token);
+      this.contracts.set(address, new Token(this, address, _symbol, _balances));
       return address;
     } catch (error) {
       this.restoreState(state);
@@ -108,7 +108,7 @@ export class Chain {
     const state = this.getState();
     try {
       const address = generateAccounts(1)[0];
-      this.contracts.set(address, new Contract(this, _lifId, _inflation, _daoFee, _daoFeeRecipient));
+      this.contracts.set(address, new Contract(this, address, _lifId, _inflation, _daoFee, _daoFeeRecipient));
       return address;
     } catch (error) {
       this.restoreState(state);
