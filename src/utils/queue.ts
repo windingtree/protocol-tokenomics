@@ -38,12 +38,13 @@ export class Queue {
 
   addTask(task: TransactionWithHash): void {
     this.tasks.push(task);
-    if (!this.busy) {
-      this.process().catch(logger.error);
-    }
+    queueMicrotask(() => this.process());
   }
 
   async process(): Promise<void> {
+    if (this.busy) {
+      return;
+    }
     if (!this.tasks.length) {
       this.busy = false;
       return;
@@ -75,7 +76,7 @@ export class Queue {
     this.busy = false;
 
     if (this.tasks.length) {
-      await this.process();
+      queueMicrotask(() => this.process());
     }
   }
 

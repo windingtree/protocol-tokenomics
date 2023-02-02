@@ -45,7 +45,7 @@ export class Chain {
     return this.accounts.get(address) || BigNumber.from(0);
   }
 
-  async processFee(from: string): Promise<void> {
+  processFee(from: string): void {
     const state = this.getState();
     try {
       if (from !== constants.AddressZero) {

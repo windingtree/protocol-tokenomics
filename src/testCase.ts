@@ -9,28 +9,15 @@ import { Logger } from './utils/logger';
 
 const logger = Logger('testCase');
 
-/**
-Every cycle:
-
-On every buyer:
-
-- Move STABLE tokens though the bridge
-- Randomly select a supplier and request an offer
-
-Buyer: on offer
-
-- Create a deal
-
-On every supplier:
-
-- Wait for an offer request
-
-Supplier: on request:
-
-- Create an offer
-- Claim the deal
-
- */
+export interface Snapshot {
+  mainnetBridgeLif: string;
+  mainnetBridgeStable: string;
+  mainnetDaoLif: string;
+  l3BridgeLif: string;
+  l3DaoLif: string;
+  l3Fee: string;
+  l3BuyersAccounts: string;
+}
 
 export const dealFlow = async (
   mainnet: Chain,
@@ -85,7 +72,37 @@ export const dealFlow = async (
   return true;
 };
 
-export const testCase = async (setup: Setup): Promise<void> => {
+export const snapshot = (setup: Setup) => {
+  const { mainnet, l3, lifToken, stableToken, bridge, dao, l3FeeRecipient, mainnetAccounts } =
+    setup;
+
+  // Balances Mainnet
+  const mainnetLif = mainnet.getContract<Token>(lifToken);
+  const mainnetStable = mainnet.getContract<Token>(stableToken);
+  const mainnetBridgeLif = mainnetLif.balanceOf(bridge.wallet);
+  const mainnetBridgeStable = mainnetStable.balanceOf(bridge.wallet);
+  const mainnetDaoLif = mainnetLif.balanceOf(dao);
+
+  // Balances L3
+  const l3BridgeLif = l3.balanceOfAddress(bridge.wallet);
+  const l3DaoLif = l3.balanceOfAddress(dao);
+  const l3Fee = l3.balanceOfAddress(l3FeeRecipient);
+  const l3BuyersAccounts = mainnetAccounts
+    .map((a) => l3.balanceOfAddress(a))
+    .reduce((a, v) => a.add(v), BigNumber.from(0));
+
+  return {
+    mainnetBridgeLif: mainnetBridgeLif.toString(),
+    mainnetBridgeStable: mainnetBridgeStable.toString(),
+    mainnetDaoLif: mainnetDaoLif.toString(),
+    l3BridgeLif: l3BridgeLif.toString(),
+    l3DaoLif: l3DaoLif.toString(),
+    l3Fee: l3Fee.toString(),
+    l3BuyersAccounts: l3BuyersAccounts.toString(),
+  };
+};
+
+export const testCase = async (setup: Setup): Promise<Snapshot[]> => {
   const { mainnet, l3, contract, stableToken, mainnetAccounts, suppliers, bridge } = setup;
 
   // Top-up mainnet account with STABLE tokens
@@ -108,7 +125,12 @@ export const testCase = async (setup: Setup): Promise<void> => {
   // Run deals cycle
   const cycleAccounts = new Set(mainnetAccounts);
 
+  // Snapshots
+  const snaps: Snapshot[] = [];
+
   while (cycleAccounts.size > 0) {
+    snaps.push(snapshot(setup));
+
     for (const account of cycleAccounts) {
       const ok = await dealFlow(mainnet, l3, contract, account, suppliers, bridge);
       if (!ok) {
@@ -117,4 +139,6 @@ export const testCase = async (setup: Setup): Promise<void> => {
     }
   }
   logger.info('Test case finished');
+
+  return snaps;
 };

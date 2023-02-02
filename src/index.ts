@@ -1,6 +1,6 @@
 import { Logger } from './utils/logger';
 import { setup } from './setup';
-import { testCase } from './testCase';
+import { Snapshot, testCase } from './testCase';
 
 const logger = Logger('index');
 
@@ -19,7 +19,9 @@ const main = async (): Promise<void> => {
   process.once('SIGINT', shutdown);
 
   const setupData = await setup();
-  await testCase(setupData);
+
+  const snaps: Snapshot[] = await testCase(setupData);
+  console.log(snaps);
 };
 
 export default main().catch(async (error) => {

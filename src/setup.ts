@@ -90,7 +90,7 @@ export const setup = async () => {
   logger.info(`DAO loaded with ${daoLif.toString()} LIF L3`);
 
   // Credit bridge with LIF on L3 from DAO
-  const bridgeAccount = bridge.wallets[l3.id];
+  const bridgeAccount = bridge.wallet;
   l3.send(dao, bridgeAccount, daoLif);
   logger.info(`Bridge credited with ${daoLif.toString()} LIF from DAO on L3`);
 

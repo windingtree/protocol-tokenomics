@@ -10,7 +10,7 @@ export interface BridgedToken {
 export class Bridge {
   chains: Record<string, Chain>;
   chainsIndex: string[];
-  wallets: Record<string, string>; // chainId => account
+  wallet: string;
   pairs: Map<string, Map<string, string>>; // chainId => tokenAddressFrom => tokenAddressTo
   enterCreditValue: BigNumber;
 
@@ -20,11 +20,8 @@ export class Bridge {
       [_chainDest.id]: _chainDest,
     };
     this.chainsIndex = [_chainSrc.id, _chainDest.id];
-    const accounts = generateAccounts(2);
-    this.wallets = {
-      [_chainSrc.id]: accounts[0],
-      [_chainDest.id]: accounts[1],
-    };
+    const accounts = generateAccounts(1);
+    this.wallet = accounts[0];
     this.pairs = new Map();
     this.enterCreditValue = _bridgeLif;
   }
@@ -57,7 +54,7 @@ export class Bridge {
       data: {
         address: tokenAddress,
         function: 'transfer',
-        arguments: [sender, this.wallets[mainnet.id], amount],
+        arguments: [sender, this.wallet, amount],
       },
     });
     await mainnet.mempool.wait(lockTx);
@@ -73,7 +70,7 @@ export class Bridge {
     });
     await l3.mempool.wait(mintTx);
     // Send to the sender a small amount of LIF on the L3
-    const bridgeAccount = this.wallets[l3.id];
+    const bridgeAccount = this.wallet;
     l3.send(bridgeAccount, sender, this.enterCreditValue);
   }
 
@@ -99,7 +96,7 @@ export class Bridge {
       data: {
         address: pairedToken,
         function: 'transfer',
-        arguments: [this.wallets[mainnet.id], sender, amount],
+        arguments: [this.wallet, sender, amount],
       },
     });
     await mainnet.mempool.wait(unlockTx);
