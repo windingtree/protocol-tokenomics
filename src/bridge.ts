@@ -1,5 +1,5 @@
 import { Chain } from './chain';
-import { BigNumber } from 'ethers';
+import { BigNumber, constants } from 'ethers';
 import { generateAccounts } from './utils/wallet';
 
 export interface BridgedToken {
@@ -8,122 +8,100 @@ export interface BridgedToken {
 }
 
 export class Bridge {
-  chains: Map<string, Chain>;
+  chains: Record<string, Chain>;
+  chainsIndex: string[];
   wallets: Record<string, string>; // chainId => account
-  pairsDirect: Map<string, Map<string, string>>; // chainId => tokenAddressFrom => tokenAddressTo
-  pairsReverse: Map<string, Map<string, string>>; // chainId => tokenAddressTo => tokenAddressFrom
-  l3Lif: string;
+  pairs: Map<string, Map<string, string>>; // chainId => tokenAddressFrom => tokenAddressTo
   enterCreditValue: BigNumber;
 
-  constructor(_chains: Chain[], _l3Lif: string, _bridgeLif: BigNumber) {
-    this.chains = new Map(_chains.map((c) => [c.id, c]));
-    this.wallets = generateAccounts(this.chains.size).reduce(
-      (a, v, i) => ({
-        ...a,
-        [_chains[i].id]: v,
-      }),
-      {},
-    );
-    this.pairsDirect = new Map();
-    this.pairsReverse = new Map();
-    this.l3Lif = _l3Lif;
+  constructor(_chainSrc: Chain, _chainDest: Chain, _bridgeLif: BigNumber) {
+    this.chains = {
+      [_chainSrc.id]: _chainSrc,
+      [_chainDest.id]: _chainDest,
+    };
+    this.chainsIndex = [_chainSrc.id, _chainDest.id];
+    const accounts = generateAccounts(2);
+    this.wallets = {
+      [_chainSrc.id]: accounts[0],
+      [_chainDest.id]: accounts[1],
+    };
+    this.pairs = new Map();
     this.enterCreditValue = _bridgeLif;
   }
 
-  getChain(chainId: string): Chain {
-    const chain = this.chains.get(chainId);
-    if (!chain) {
-      throw new Error(`Chain #${chainId} is not registered on the bridge`);
-    }
-    return chain;
+  registerPair(chainId: string, from: string, to: string): void {
+    const pairs = this.pairs.get(chainId) || new Map();
+    pairs.set(from, to);
+    this.pairs.set(chainId, pairs);
   }
 
-  registerPair(from: BridgedToken, to: BridgedToken): void {
-    const pairsDirect = (this.pairsDirect.get(from.chainId) || new Map()).set(from.address, to.address);
-    this.pairsDirect.set(from.chainId, pairsDirect);
-    const pairsReverse = (this.pairsReverse.get(to.chainId) || new Map()).set(to.address, from.address);
-    this.pairsReverse.set(from.chainId, pairsReverse);
+  getPairedToken(chainId: string, token: string): string {
+    const pairs = this.pairs.get(chainId);
+    if (pairs) {
+      const pair = pairs.get(token);
+      if (pair) {
+        return pair;
+      }
+    }
+    throw new Error(`Unable to find paired token for token ${token}`);
   }
 
-  validatedPair(address: string, srcChainId: string, destChainId: string): { srcChain: Chain; destChain: Chain } {
-    const srcChain = this.getChain(srcChainId);
-    const destChain = this.getChain(destChainId);
-    // Check if token paired
-    const pairs = this.pairsDirect.get(srcChainId);
-    if (!pairs || !pairs.get(address)) {
-      throw new Error(`Token #${address} from chain #${srcChainId} is not paired`);
-    }
-    const destTokenAddress = pairs.get(address);
-    if (!destTokenAddress) {
-      throw new Error(`Invalid token #${address} pair on from chain #${srcChainId}`);
-    }
-    return { srcChain, destChain };
-  }
-
-  async enter(
-    sender: string,
-    address: string,
-    amount: BigNumber,
-    srcChainId: string,
-    destChainId: string,
-  ): Promise<void> {
-    const { srcChain, destChain } = this.validatedPair(address, srcChainId, destChainId);
+  async enter(sender: string, tokenAddress: string, amount: BigNumber): Promise<void> {
+    const mainnet = this.chains[this.chainsIndex[0]];
+    const l3 = this.chains[this.chainsIndex[1]];
+    const pairedToken = this.getPairedToken(mainnet.id, tokenAddress);
     // Lock incoming tokens on bridge
-    const lockTx = srcChain.sendTransaction({
+    const lockTx = mainnet.sendTransaction({
       from: sender,
       value: BigNumber.from(0),
       data: {
-        address,
+        address: tokenAddress,
         function: 'transfer',
-        arguments: [sender, this.wallets[srcChainId], amount],
+        arguments: [sender, this.wallets[mainnet.id], amount],
       },
     });
-    await srcChain.mempool.wait(lockTx);
+    await mainnet.mempool.wait(lockTx);
     // Mint on L3
-    const mintTx = destChain.sendTransaction({
-      from: sender,
+    const mintTx = l3.sendTransaction({
+      from: constants.AddressZero,
       value: BigNumber.from(0),
       data: {
-        address,
+        address: pairedToken,
         function: 'mint',
         arguments: [sender, amount],
       },
     });
-    await destChain.mempool.wait(mintTx);
+    await l3.mempool.wait(mintTx);
     // Send to the sender a small amount of LIF on the L3
-    const bridgeAccount = this.wallets[destChain.id];
-    destChain.send(bridgeAccount, sender, this.enterCreditValue);
+    const bridgeAccount = this.wallets[l3.id];
+    l3.send(bridgeAccount, sender, this.enterCreditValue);
   }
 
-  async exit(
-    sender: string,
-    address: string,
-    amount: BigNumber,
-    srcChainId: string,
-    destChainId: string,
-  ): Promise<void> {
-    const { srcChain, destChain } = this.validatedPair(address, srcChainId, destChainId);
+  async exit(sender: string, tokenAddress: string, amount: BigNumber): Promise<void> {
+    const mainnet = this.chains[this.chainsIndex[0]];
+    const l3 = this.chains[this.chainsIndex[1]];
+    const pairedToken = this.getPairedToken(l3.id, tokenAddress);
     // Burn on L3
-    const burnTx = srcChain.sendTransaction({
+    const burnTx = l3.sendTransaction({
       from: sender,
       value: BigNumber.from(0),
       data: {
-        address,
+        address: tokenAddress,
         function: 'burn',
         arguments: [sender, amount],
       },
     });
-    await srcChain.mempool.wait(burnTx);
+    await l3.mempool.wait(burnTx);
     // Unlock tokens in Mainnet
-    const unlockTx = destChain.sendTransaction({
+    const unlockTx = mainnet.sendTransaction({
       from: sender,
       value: BigNumber.from(0),
       data: {
-        address,
+        address: pairedToken,
         function: 'transfer',
-        arguments: [this.wallets[srcChainId], sender, amount],
+        arguments: [this.wallets[mainnet.id], sender, amount],
       },
     });
-    await destChain.mempool.wait(unlockTx);
+    await mainnet.mempool.wait(unlockTx);
   }
 }

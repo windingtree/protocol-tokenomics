@@ -15,7 +15,12 @@ export class Token {
   totalSupply: BigNumber;
   balances: Map<string, BigNumber>;
 
-  constructor(_chain: Chain, _address: string, _symbol: string, _balances: Iterable<[string, BigNumber]> = []) {
+  constructor(
+    _chain: Chain,
+    _address: string,
+    _symbol: string,
+    _balances: Iterable<[string, BigNumber]> = [],
+  ) {
     this.chain = _chain;
     this.address = _address;
     this.symbol = _symbol;
@@ -52,7 +57,9 @@ export class Token {
     try {
       const balanceFrom = this.balances.get(from) || BigNumber.from(0);
       if (balanceFrom.lt(amount)) {
-        throw new Error(`Token: Balance of ${from}: ${balanceFrom.toString()} not enough to burn ${amount.toString()}`);
+        throw new Error(
+          `Token: Balance of ${from}: ${balanceFrom.toString()} not enough to burn ${amount.toString()}`,
+        );
       }
       this.balances.set(from, balanceFrom.sub(amount));
       this.totalSupply = this.totalSupply.sub(amount);

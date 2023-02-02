@@ -5,6 +5,7 @@ export const simpleUid = (length = 11): string => {
   if (length < 5 || length > 11) {
     throw new Error('length value must be between 5 and 11');
   }
-  lastKnownSeed = lastKnownSeed + Math.random();
-  return lastKnownSeed.toString(16).slice(2, length);
+  lastKnownSeed = Math.random();
+  const seed = Math.random() / lastKnownSeed;
+  return seed.toString(16).slice(2, length);
 };

@@ -48,13 +48,15 @@ export class Chain {
   async processFee(from: string): Promise<void> {
     const state = this.getState();
     try {
-      const fromBalance = this.balanceOfAddress(from);
-      if (fromBalance.lt(this.fee)) {
-        throw new Error('Insufficient balance');
+      if (from !== constants.AddressZero) {
+        const fromBalance = this.balanceOfAddress(from);
+        if (fromBalance.lt(this.fee)) {
+          throw new Error('Insufficient balance');
+        }
+        this.accounts.set(from, fromBalance.sub(this.fee));
+        const feeRecipientBalance = this.balanceOfAddress(this.feeRecipient);
+        this.accounts.set(this.feeRecipient, feeRecipientBalance.add(this.fee));
       }
-      this.accounts.set(from, fromBalance.sub(this.fee));
-      const feeRecipientBalance = this.balanceOfAddress(this.feeRecipient);
-      this.accounts.set(this.feeRecipient, feeRecipientBalance.add(this.fee));
     } catch (error) {
       this.restoreState(state);
       throw error;
@@ -104,11 +106,14 @@ export class Chain {
     }
   }
 
-  deployContract(_lifId: string, _inflation: BigNumber, _daoFee: BigNumber, _daoFeeRecipient: string): string {
+  deployContract(_inflation: BigNumber, _daoFee: BigNumber, _daoFeeRecipient: string): string {
     const state = this.getState();
     try {
       const address = generateAccounts(1)[0];
-      this.contracts.set(address, new Contract(this, address, _lifId, _inflation, _daoFee, _daoFeeRecipient));
+      this.contracts.set(
+        address,
+        new Contract(this, address, _inflation, _daoFee, _daoFeeRecipient),
+      );
       return address;
     } catch (error) {
       this.restoreState(state);

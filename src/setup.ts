@@ -1,9 +1,7 @@
 import { constants } from 'ethers';
 import { generateAccounts } from './utils/wallet';
 import { Chain } from './chain';
-import { Token } from './token';
 import { Bridge } from './bridge';
-import { Contract } from './contract';
 import {
   mainnetBaseFee,
   mainnetAccountsNumber,
@@ -14,7 +12,11 @@ import {
   daoFee,
   daoLif,
   bridgeLif,
+  supplierNumber,
+  supplierMaxValue,
+  supplierMinValue,
 } from './config';
+import { Supplier } from './supplier';
 import { Logger } from './utils/logger';
 
 const logger = Logger('Setup');
@@ -26,18 +28,19 @@ export interface Setup {
   mainnetAccounts: string[];
   mainnet: Chain;
   l3: Chain;
-  lifToken: Token;
-  stableToken: Token;
-  l3LifToken: Token;
-  l3StableToken: Token;
+  lifToken: string;
+  stableToken: string;
+  l3StableToken: string;
   bridge: Bridge;
-  contract: Contract;
+  contract: string;
+  suppliers: Supplier[];
 }
 
 export const setup = async () => {
   logger.info('Start setup');
   logger.info('Number of accounts on Mainnet:', mainnetAccountsNumber);
-  const [mainnetFeeRecipient, l3FeeRecipient, dao, ...mainnetAccounts] = generateAccounts(mainnetAccountsNumber);
+  const [mainnetFeeRecipient, l3FeeRecipient, dao, ...mainnetAccounts] =
+    generateAccounts(mainnetAccountsNumber);
 
   // Setup Mainnet
   const mainnet = new Chain('mainnet', mainnetBaseFee, mainnetFeeRecipient);
@@ -69,40 +72,18 @@ export const setup = async () => {
   logger.info('L3 chain base fee:', l3BaseFee.toString());
   logger.info('L3 chain fee recipient:', l3FeeRecipient);
 
-  // Setup L3 LIF token
-  const l3LifToken = l3.deployToken('LIF', []);
-  logger.info('L3 LIF token deployed at:', l3LifToken);
-
   // Setup L3 STABLE token
   const l3StableToken = l3.deployToken('STABLE', []);
   logger.info('L3 STABLE token deployed at:', l3StableToken);
 
   // Setup bridge
   logger.info('DAO address:', dao);
-  const bridge = new Bridge([mainnet, l3], l3LifToken, bridgeLif);
+  const bridge = new Bridge(mainnet, l3, bridgeLif);
   logger.info('Bridge setup done');
-  bridge.registerPair(
-    {
-      chainId: mainnet.id,
-      address: lifToken,
-    },
-    {
-      chainId: l3.id,
-      address: l3LifToken,
-    },
-  );
-  logger.info('Registered bridged pair LIF (Mainnet) -> LIF (L3)');
-  bridge.registerPair(
-    {
-      chainId: mainnet.id,
-      address: stableToken,
-    },
-    {
-      chainId: l3.id,
-      address: l3StableToken,
-    },
-  );
+  bridge.registerPair(mainnet.id, stableToken, l3StableToken);
   logger.info('Registered bridged pair STABLE (Mainnet) -> STABLE (L3)');
+  bridge.registerPair(l3.id, l3StableToken, stableToken);
+  logger.info('Registered bridged pair STABLE (L3) -> STABLE (Mainnet)');
 
   // Top-up the DAO with LIF on L3
   l3.send(constants.AddressZero, dao, daoLif);
@@ -114,8 +95,17 @@ export const setup = async () => {
   logger.info(`Bridge credited with ${daoLif.toString()} LIF from DAO on L3`);
 
   // Setup the protocol smart contract
-  const contract = l3.deployContract(l3LifToken, inflationCoefficient, daoFee, dao);
+  const contract = l3.deployContract(inflationCoefficient, daoFee, dao);
   logger.info('The protocol smart contract deployed at:', contract);
+
+  // Setup suppliers
+  const suppliers = Array(supplierNumber)
+    .fill(null)
+    .map(() => new Supplier(l3, [l3StableToken], supplierMinValue, supplierMaxValue, contract));
+  const suppliersIds = suppliers.map((s) => s.id);
+  logger.info(`Setup of ${supplierNumber} is done`, suppliersIds);
+  suppliers.map((s) => l3.send(constants.AddressZero, s.account, mainnetAccountsEth));
+  logger.info('Suppliers accounts credited LIF');
 
   return {
     mainnetFeeRecipient,
@@ -126,9 +116,9 @@ export const setup = async () => {
     l3,
     lifToken,
     stableToken,
-    l3LifToken,
     l3StableToken,
     bridge,
     contract,
+    suppliers,
   };
 };

@@ -1,5 +1,6 @@
 import { Logger } from './utils/logger';
 import { setup } from './setup';
+import { testCase } from './testCase';
 
 const logger = Logger('index');
 
@@ -17,20 +18,8 @@ const main = async (): Promise<void> => {
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 
-  const {
-    mainnetFeeRecipient,
-    l3FeeRecipient,
-    dao,
-    mainnetAccounts,
-    mainnet,
-    l3,
-    lifToken,
-    stableToken,
-    l3LifToken,
-    l3StableToken,
-    bridge,
-    contract,
-  } = await setup();
+  const setupData = await setup();
+  await testCase(setupData);
 };
 
 export default main().catch(async (error) => {

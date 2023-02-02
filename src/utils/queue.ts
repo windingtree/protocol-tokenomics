@@ -39,7 +39,7 @@ export class Queue {
   addTask(task: TransactionWithHash): void {
     this.tasks.push(task);
     if (!this.busy) {
-      this.process();
+      this.process().catch(logger.error);
     }
   }
 
@@ -64,8 +64,8 @@ export class Queue {
       const task = method.apply(contract, [msg, ...tx.data.arguments]);
       this.pending.set(tx.hash, task);
       await task;
-      this.pending.delete(tx.hash);
       logger.debug(`#${tx.hash} done`);
+      this.pending.delete(tx.hash);
     } catch (error) {
       logger.debug(`#${tx.hash} failed`);
       logger.error(error);
@@ -75,7 +75,7 @@ export class Queue {
     this.busy = false;
 
     if (this.tasks.length) {
-      this.process();
+      await this.process();
     }
   }
 
