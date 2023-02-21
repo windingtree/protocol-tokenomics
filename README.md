@@ -1,4 +1,4 @@
-# The WindingTree tokenomics
+# The WindingTree market protocol tokenomics
 
 This document defines top level vision of the LIF tokenomics of the WindingTree market protocol
 
